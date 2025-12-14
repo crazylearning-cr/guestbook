@@ -5,8 +5,9 @@ metadata:
   namespace: argocd
   annotations:
     argocd-image-updater.argoproj.io/image-list: guestbook=udemykcloud534/guestbook
-    argocd-image-updater.argoproj.io/guestbook.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/guestbook.update-strategy: latest
     argocd-image-updater.argoproj.io/guestbook.allow-tags: regexp:^[a-f0-9]{7}$
+    argocd-image-updater.argoproj.io/guestbook.tag-order: lexicographical
     argocd-image-updater.argoproj.io/write-back-method: git
     argocd-image-updater.argoproj.io/write-back-target: kustomization
 spec:
