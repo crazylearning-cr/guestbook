@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook-dev
+  namespace: argocd
+spec:
+  project: guestbook
+
+  source:
+    repoURL: https://github.com/crazylearning-cr/guestbook.git
+    targetRevision: main
+    path: k8s-manifests/guestbook-rollout/overlays/dev
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

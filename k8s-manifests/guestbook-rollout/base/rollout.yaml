@@ -1,0 +1,105 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: guestbook-ui
+spec:
+  replicas: 3
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: guestbook-ui
+  template:
+    metadata:
+      labels:
+        app: guestbook-ui
+    spec:
+      containers:
+        - name: guestbook-ui
+          image: udemykcloud534/guestbook:yellow
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+  strategy:
+    canary:
+      steps:
+        # 1) Start some canary pods, but DON'T send prod traffic yet
+        - setCanaryScale:
+            replicas: 1
+
+        # 2) Pause so testers can hit /preview (canary only)
+        - pause: {}
+
+        # 3) Now start shifting prod traffic
+        - setWeight: 20
+        - pause: {}
+
+        - setWeight: 50
+        - pause: {}
+
+        - setWeight: 100
+      canaryService: guestbook-ui-canary
+      stableService: guestbook-ui
+      trafficRouting:
+        nginx:
+          stableIngress: guestbook-ui-ingress
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: guestbook-ui
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: guestbook-ui
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: guestbook-ui-canary
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: guestbook-ui
+---
+# Main ingress used by Argo Rollouts for weighted traffic
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: guestbook-ui-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "false"
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: guestbook-ui
+                port:
+                  number: 80
