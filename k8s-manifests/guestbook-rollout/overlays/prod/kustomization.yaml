@@ -4,14 +4,25 @@ resources:
 nameSuffix: -prod
 
 patches:
-- patch: |-
-    - op: replace
-      path: /spec/replicas
-      value: 2
-  target:
-    kind: Rollout
-    name: guestbook-ui
+  - target:
+      kind: Rollout
+      name: guestbook-ui
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
 
+      - op: replace
+        path: /spec/strategy/canary/stableService
+        value: guestbook-ui-prod
+
+      - op: replace
+        path: /spec/strategy/canary/canaryService
+        value: guestbook-ui-canary-prod
+
+      - op: replace
+        path: /spec/strategy/canary/trafficRouting/nginx/stableIngress
+        value: guestbook-ui-ingress-prod
 images:
 - name: udemykcloud534/guestbook
   newName: udemykcloud534/guestbook
