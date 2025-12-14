@@ -222,6 +222,244 @@ DOCKERHUB_USERNAME
 DOCKERHUB_PASSWORD
 ```
 
+# Add the below files in your github repo
+
+.github/workflows/ci.yaml
+```
+name: Guestbook CI/CD Pipeline
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/guestbook
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+      COMMIT_EMAIL: "github-actions@example.com"
+      COMMIT_NAME: "GitHub Actions Bot"
+
+    steps:
+    # ----------------------------------------
+    # Checkout source code
+    # ----------------------------------------
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # ----------------------------------------
+    # Python setup & tests
+    # ----------------------------------------
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        cd app
+        pip install -r requirements.txt
+        pip install pytest pytest-cov
+
+    - name: Run tests
+      run: |
+        pytest --cov=app --cov-report=term-missing --cov-fail-under=80 app/ || true
+
+    # ----------------------------------------
+    # Docker build & push
+    # ----------------------------------------
+    - name: Log in to Docker Hub
+      run: |
+        echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+
+    - name: Build & push Docker image
+      run: |
+        IMAGE_TAG=$(git rev-parse --short HEAD)
+        echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+
+        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ./app
+        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+
+    # ----------------------------------------
+    # Install Kustomize
+    # ----------------------------------------
+    - name: Install kustomize
+      run: |
+        curl -s https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
+        sudo mv kustomize /usr/local/bin/
+
+    # ----------------------------------------
+    # Update Kustomize overlay (PROD)
+    # ----------------------------------------
+    - name: Update k8s manifest image 
+      run: |
+        cd k8s-manifests/guestbook-rollout/overlays/dev
+
+        echo "Before update:"
+        cat kustomization.yaml
+
+        kustomize edit set image \
+          udemykcloud534/guestbook=${IMAGE_NAME}:${IMAGE_TAG}
+
+        echo "After update:"
+        cat kustomization.yaml
+
+    # ----------------------------------------
+    # Commit & push manifest changes
+    # ----------------------------------------
+    - name: Commit and push manifest changes
+      run: |
+        git config user.email "${COMMIT_EMAIL}"
+        git config user.name "${COMMIT_NAME}"
+
+        git add k8s-manifests/guestbook-rollout/overlays/dev/kustomization.yaml
+        git commit -m "chore: update guestbook image to ${IMAGE_TAG}" || echo "No changes to commit"
+        git push origin main
+```
+
+k8s-manifests\guestbook-rollout\base\kustomization.yaml
+```
+resources:
+  - rollout.yaml
+```
+
+k8s-manifests\guestbook-rollout\base\rollout.yaml
+```
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: guestbook-ui
+spec:
+  replicas: 3
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: guestbook-ui
+  template:
+    metadata:
+      labels:
+        app: guestbook-ui
+    spec:
+      containers:
+        - name: guestbook-ui
+          image: udemykcloud534/guestbook:yellow
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+  strategy:
+    canary:
+      steps:
+        # 1) Start some canary pods, but DON'T send prod traffic yet
+        - setCanaryScale:
+            replicas: 1
+
+        # 2) Pause so testers can hit /preview (canary only)
+        - pause: {}
+
+        # 3) Now start shifting prod traffic
+        - setWeight: 20
+        - pause: {}
+
+        - setWeight: 50
+        - pause: {}
+
+        - setWeight: 100
+      canaryService: guestbook-ui-canary
+      stableService: guestbook-ui
+      trafficRouting:
+        nginx:
+          stableIngress: guestbook-ui-ingress
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: guestbook-ui
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: guestbook-ui
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: guestbook-ui-canary
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: guestbook-ui
+---
+# Main ingress used by Argo Rollouts for weighted traffic
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: guestbook-ui-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "false"
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: guestbook-ui
+                port:
+                  number: 80
+```
+
+k8s-manifests\guestbook-rollout\overlays\dev\kustomization.yaml
+```
+resources:
+- ../../base
+
+patches:
+- patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 1
+  target:
+    kind: Rollout
+    name: guestbook-ui
+      
+images:
+- name: udemykcloud534/guestbook
+  newName: udemykcloud534/guestbook
+  newTag: a40ef51
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+```
 
 # Create ArgoApplications
 
@@ -282,6 +520,7 @@ spec:
 kubectl apply -f k8s-manifests/argo-application/project.yaml
 kubectl apply -f k8s-manifests/argo-application/application.yaml
 ```
+
 
 
 Promote to next level

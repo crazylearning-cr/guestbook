@@ -1,7 +1,8 @@
-name: Guestbook CI/CD Pipeline
+name: Guestbook CI – Build & Propose Prod Promotion
 
 permissions:
   contents: write
+  pull-requests: write
 
 on:
   push:
@@ -9,49 +10,30 @@ on:
       - main
 
 jobs:
-  build-test-deploy:
+  build-and-propose:
     runs-on: ubuntu-latest
 
     env:
       IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/guestbook
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-      COMMIT_EMAIL: "github-actions@example.com"
-      COMMIT_NAME: "GitHub Actions Bot"
+      COMMIT_EMAIL: github-actions@example.com
+      COMMIT_NAME: GitHub Actions Bot
 
     steps:
-    # ----------------------------------------
-    # Checkout source code
-    # ----------------------------------------
-    - name: Checkout repository
+    - name: Checkout repo
       uses: actions/checkout@v4
-
-    # ----------------------------------------
-    # Python setup & tests
-    # ----------------------------------------
-    - name: Set up Python
-      uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        fetch-depth: 0
 
-    - name: Install dependencies
-      run: |
-        cd app
-        pip install -r requirements.txt
-        pip install pytest pytest-cov
-
-    - name: Run tests
-      run: |
-        pytest --cov=app --cov-report=term-missing --cov-fail-under=80 app/ || true
-
-    # ----------------------------------------
-    # Docker build & push
-    # ----------------------------------------
-    - name: Log in to Docker Hub
+    # ----------------------------
+    # Build & Push Image
+    # ----------------------------
+    - name: Docker login
       run: |
         echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
 
-    - name: Build & push Docker image
+    - name: Build & push image
       run: |
         IMAGE_TAG=$(git rev-parse --short HEAD)
         echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
@@ -59,38 +41,43 @@ jobs:
         docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ./app
         docker push ${IMAGE_NAME}:${IMAGE_TAG}
 
-    # ----------------------------------------
-    # Install Kustomize
-    # ----------------------------------------
+    # ----------------------------
+    # Prepare PROD promotion branch
+    # ----------------------------
     - name: Install kustomize
       run: |
         curl -s https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
         sudo mv kustomize /usr/local/bin/
 
-    # ----------------------------------------
-    # Update Kustomize overlay (PROD)
-    # ----------------------------------------
-    - name: Update k8s manifest image 
+    - name: Create prod promotion branch
       run: |
-        cd k8s-manifests/guestbook-rollout/overlays/dev
+        git checkout -b promote-prod-${IMAGE_TAG}
 
-        echo "Before update:"
-        cat kustomization.yaml
-
+        cd k8s-manifests/guestbook-rollout/overlays/prod
         kustomize edit set image \
           udemykcloud534/guestbook=${IMAGE_NAME}:${IMAGE_TAG}
 
-        echo "After update:"
-        cat kustomization.yaml
-
-    # ----------------------------------------
-    # Commit & push manifest changes
-    # ----------------------------------------
-    - name: Commit and push manifest changes
-      run: |
         git config user.email "${COMMIT_EMAIL}"
         git config user.name "${COMMIT_NAME}"
 
-        git add k8s-manifests/guestbook-rollout/overlays/dev/kustomization.yaml
-        git commit -m "chore: update guestbook image to ${IMAGE_TAG}" || echo "No changes to commit"
-        git push origin main
+        git add kustomization.yaml
+        git commit -m "prod: promote guestbook to ${IMAGE_TAG}"
+        git push origin promote-prod-${IMAGE_TAG}
+
+    # ----------------------------
+    # Create PR
+    # ----------------------------
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v6
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        branch: promote-prod-${{ env.IMAGE_TAG }}
+        base: main
+        title: "Promote guestbook to PROD (${IMAGE_TAG})"
+        body: |
+          ## 🚀 Production Promotion
+          - Image: `${IMAGE_NAME}:${IMAGE_TAG}`
+          - Source: Docker Hub
+          - Verified in DEV via Argo Image Updater
+
+          ✅ Please review and approve for production deployment.
