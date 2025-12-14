@@ -220,9 +220,8 @@ Add below secrets in your repository >> settings >> secrets and variables >> act
 ```
 DOCKERHUB_USERNAME
 DOCKERHUB_PASSWORD
-ARGO_GITHUB_TOKEN
 ```
-Note: Generate repo token from your github account settings >> Developer settings 
+
 
 # Create ArgoApplications
 

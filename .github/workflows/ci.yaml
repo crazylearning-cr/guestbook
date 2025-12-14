@@ -2,7 +2,7 @@ name: Guestbook CI/CD Pipeline
 
 permissions:
   contents: write
-  
+
 on:
   push:
     branches:
@@ -72,7 +72,7 @@ jobs:
     # ----------------------------------------
     - name: Update k8s manifest image (prod overlay)
       run: |
-        cd k8s-manifests/guestbook-rollout/overlays/prod
+        cd k8s-manifests/guestbook-rollout/overlays/dev
 
         echo "Before update:"
         cat kustomization.yaml
