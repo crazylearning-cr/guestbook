@@ -600,3 +600,11 @@ GitHub repo
  → Actions
  → General
  sllow creating pr
+
+
+C:\Windows\System32\drivers\etc\hosts
+
+a9a36977b34b249dbb2578d94e69a288.elb.us-east-1.amazonaws.com guestbook-dev.local
+a9a36977b34b249dbb2578d94e69a288.elb.us-east-1.amazonaws.com guestbook-prod.local
+
+ipconfig /flushdns
