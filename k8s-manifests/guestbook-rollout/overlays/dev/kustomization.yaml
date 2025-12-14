@@ -30,4 +30,4 @@ patches:
       value: guestbook-dev.34.204.31.114.nip.io
 images:
 - name: udemykcloud534/guestbook
-  newTag: 528beb9
+  newTag: a050b3a
