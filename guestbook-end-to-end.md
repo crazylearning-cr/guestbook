@@ -220,11 +220,64 @@ Add below secrets in your repository >> settings >> secrets and variables >> act
 ```
 DOCKERHUB_USERNAME
 DOCKERHUB_PASSWORD
+ARGO_GITHUB_TOKEN
 ```
+Note: Generate repo token from your github account settings >> Developer settings 
 
 # Create ArgoApplications
 
+```
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: guestbook
+  namespace: argocd
+spec:
+  description: Guestbook project (single-cluster)
 
+  sourceRepos:
+    - https://github.com/crazylearning-cr/guestbook.git
+
+  destinations:
+    - namespace: '*'
+      server: https://kubernetes.default.svc
+
+  # Allow namespace creation
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  # Allow all namespaced resources (Deployments, Rollouts, Services, Ingress, etc.)
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+```
+
+```
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook-dev
+  namespace: argocd
+spec:
+  project: guestbook
+
+  source:
+    repoURL: https://github.com/crazylearning-cr/guestbook.git
+    targetRevision: main
+    path: k8s-manifests/guestbook-rollout/overlays/dev
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
 
 ```
 kubectl apply -f k8s-manifests/argo-application/project.yaml
