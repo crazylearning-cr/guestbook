@@ -605,6 +605,9 @@ GitHub repo
 C:\Windows\System32\drivers\etc\hosts
 
 a9a36977b34b249dbb2578d94e69a288.elb.us-east-1.amazonaws.com guestbook-dev.local
-a9a36977b34b249dbb2578d94e69a288.elb.us-east-1.amazonaws.com guestbook-prod.local
-
+a9a36977b34b249dbb2578d94e69a288.elb.us-east-1.amazonaws.com
 ipconfig /flushdns
+
+ Invoke-WebRequest `
+>>   -Uri http://a9a36977b34b249dbb2578d94e69a288-77c0f8d383910bc2.elb.us-east-1.amazonaws.com `
+>>   -Headers @{ Host = "guestbook-prod.local" }

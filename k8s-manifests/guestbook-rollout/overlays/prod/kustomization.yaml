@@ -34,7 +34,7 @@ patches:
   patch: |-
     - op: add
       path: /spec/rules/0/host
-      value: guestbook-prod.local
+      value: guestbook-prod.54.205.161.99.nip.io
 images:
 - name: udemykcloud534/guestbook
   newName: udemykcloud534/guestbook
