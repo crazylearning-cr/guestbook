@@ -6,7 +6,7 @@ from typing import List
 app = FastAPI()
 
 # Demo version color (change this to "blue" or "green" for Rollout demo)
-APP_COLOR = "white"  # Change to green for the next rollout version
+APP_COLOR = "pink"  # Change to green for the next rollout version
 
 class GuestEntry(BaseModel):
     name: str

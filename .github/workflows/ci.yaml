@@ -13,6 +13,8 @@ on:
 
 jobs:
   build-and-propose:
+    if: |
+      github.actor != 'argocd-image-updater'
     runs-on: ubuntu-latest
 
     env:
