@@ -23,6 +23,6 @@ patches:
       value: guestbook-ui-ingress-dev
 images:
 - name: udemykcloud534/guestbook
-  newTag: 7aabd5f
+  newTag: 4abb6d2
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
