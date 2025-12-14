@@ -1,0 +1,15 @@
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: Rollout
+      name: guestbook-ui
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+
+images:
+  - name: udemykcloud534/guestbook
+    newTag: yellow

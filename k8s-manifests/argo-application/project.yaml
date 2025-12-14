@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: guestbook
+  namespace: argocd
+spec:
+  description: Guestbook project (single-cluster)
+
+  sourceRepos:
+    - https://github.com/crazylearning-cr/guestbook.git
+
+  destinations:
+    - namespace: '*'
+      server: https://kubernetes.default.svc
+
+  # Allow namespace creation
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  # Allow all namespaced resources (Deployments, Rollouts, Services, Ingress, etc.)
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
