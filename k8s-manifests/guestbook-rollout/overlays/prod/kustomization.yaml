@@ -6,6 +6,11 @@ nameSuffix: -prod
 
 
 
+
+
+
+
+ # 👇 HOST-BASED ROUTING PATCH (PROD)
 patches:
 - patch: |-
     - op: replace
@@ -26,18 +31,16 @@ patches:
   target:
     kind: Rollout
     name: guestbook-ui
-
- # 👇 HOST-BASED ROUTING PATCH (PROD)
-- target:
-    kind: Ingress
-    name: guestbook-ui-ingress
-  patch: |-
+- patch: |-
     - op: add
       path: /spec/rules/0/host
       value: guestbook-prod.local
+  target:
+    kind: Ingress
+    name: guestbook-ui-ingress
 images:
 - name: udemykcloud534/guestbook
   newName: udemykcloud534/guestbook
-  newTag: 7aabd5f
+  newTag: 5d1c61d
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
