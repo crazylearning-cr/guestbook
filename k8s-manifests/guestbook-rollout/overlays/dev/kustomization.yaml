@@ -21,15 +21,15 @@ patches:
     - op: replace
       path: /spec/strategy/canary/trafficRouting/nginx/stableIngress
       value: guestbook-ui-ingress-dev
-# - target:
-#     kind: Ingress
-#     name: guestbook-ui-ingress
-#   patch: |-
-#     - op: add
-#       path: /spec/rules/0/host
-#       value: guestbook-dev.34.204.31.114.nip.io
+- target:
+    kind: Ingress
+    name: guestbook-ui-ingress
+  patch: |-
+    - op: add
+      path: /spec/rules/0/host
+      value: guestbook-dev.34.204.31.114.nip.io
 images:
 - name: udemykcloud534/guestbook
-  newTag: a7902ff
+  newTag: 3270caf
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
