@@ -27,7 +27,7 @@ patches:
   patch: |-
     - op: add
       path: /spec/rules/0/host
-      value: guestbook-dev.54.205.161.99.nip.io
+      value: guestbook-dev.34.204.31.114.nip.io
 images:
 - name: udemykcloud534/guestbook
   newTag: 3270caf
