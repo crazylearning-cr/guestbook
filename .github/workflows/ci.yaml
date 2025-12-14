@@ -1,5 +1,8 @@
 name: Guestbook CI/CD Pipeline
 
+permissions:
+  contents: write
+  
 on:
   push:
     branches:
