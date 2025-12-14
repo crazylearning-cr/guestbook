@@ -1,3 +1,7 @@
+End-to-End Guestbook App deployment
+
+![alt text](image.png)
+
 # Create EKS cluster
 
 
@@ -204,6 +208,21 @@ Install ingress controllers
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/aws/deploy.yaml
 ```
 
+
+Install image updater 
+```
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/v0.12.2/manifests/install.yaml
+kubectl get pods -n argocd
+
+kubectl create secret generic github-repo-creds -n argocd --from-literal=url=https://github.com/crazylearning-cr/guestbook.git --from-literal=username=git --from-literal=password=github_pat_xxxxxxxx --from-literal=type=git --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl label secret github-repo-creds -n argocd argocd.argoproj.io/secret-type=repo-creds
+
+kubectl rollout restart deployment argocd-repo-server -n argocd
+
+kubectl logs -n argocd deployment/argocd-image-updater -f
+```
+
 # Guestbook App repo
 Fork guestbook repo [https://github.com/crazylearning-cr/guestbook.git] in your github account
 This contains the guestbook app under app folder and k8s-manifest
@@ -225,61 +244,44 @@ DOCKERHUB_PASSWORD
 # Add the below files in your github repo
 
 .github/workflows/ci.yaml
-```
-name: Guestbook CI/CD Pipeline
+```name: Guestbook CI – Build & Propose Prod Promotion
 
 permissions:
   contents: write
+  pull-requests: write
 
 on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'k8s-manifests/**'
 
 jobs:
-  build-test-deploy:
+  build-and-propose:
     runs-on: ubuntu-latest
 
     env:
       IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/guestbook
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-      COMMIT_EMAIL: "github-actions@example.com"
-      COMMIT_NAME: "GitHub Actions Bot"
+      COMMIT_EMAIL: github-actions@example.com
+      COMMIT_NAME: GitHub Actions Bot
 
     steps:
-    # ----------------------------------------
-    # Checkout source code
-    # ----------------------------------------
-    - name: Checkout repository
+    - name: Checkout repo
       uses: actions/checkout@v4
-
-    # ----------------------------------------
-    # Python setup & tests
-    # ----------------------------------------
-    - name: Set up Python
-      uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        fetch-depth: 0
 
-    - name: Install dependencies
-      run: |
-        cd app
-        pip install -r requirements.txt
-        pip install pytest pytest-cov
-
-    - name: Run tests
-      run: |
-        pytest --cov=app --cov-report=term-missing --cov-fail-under=80 app/ || true
-
-    # ----------------------------------------
-    # Docker build & push
-    # ----------------------------------------
-    - name: Log in to Docker Hub
+    # ----------------------------
+    # Build & Push Image
+    # ----------------------------
+    - name: Docker login
       run: |
         echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
 
-    - name: Build & push Docker image
+    - name: Build & push image
       run: |
         IMAGE_TAG=$(git rev-parse --short HEAD)
         echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
@@ -287,41 +289,30 @@ jobs:
         docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ./app
         docker push ${IMAGE_NAME}:${IMAGE_TAG}
 
-    # ----------------------------------------
-    # Install Kustomize
-    # ----------------------------------------
+    # ----------------------------
+    # Prepare PROD promotion branch
+    # ----------------------------
     - name: Install kustomize
       run: |
         curl -s https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
         sudo mv kustomize /usr/local/bin/
 
-    # ----------------------------------------
-    # Update Kustomize overlay (PROD)
-    # ----------------------------------------
-    - name: Update k8s manifest image 
+    - name: Update prod manifest
       run: |
-        cd k8s-manifests/guestbook-rollout/overlays/dev
-
-        echo "Before update:"
-        cat kustomization.yaml
-
+        cd k8s-manifests/guestbook-rollout/overlays/prod
         kustomize edit set image \
           udemykcloud534/guestbook=${IMAGE_NAME}:${IMAGE_TAG}
 
-        echo "After update:"
-        cat kustomization.yaml
-
-    # ----------------------------------------
-    # Commit & push manifest changes
-    # ----------------------------------------
-    - name: Commit and push manifest changes
-      run: |
-        git config user.email "${COMMIT_EMAIL}"
-        git config user.name "${COMMIT_NAME}"
-
-        git add k8s-manifests/guestbook-rollout/overlays/dev/kustomization.yaml
-        git commit -m "chore: update guestbook image to ${IMAGE_TAG}" || echo "No changes to commit"
-        git push origin main
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v6
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "prod: promote guestbook to ${IMAGE_TAG}"
+        branch: promote-prod-${{ env.IMAGE_TAG }}
+        base: main
+        title: "Promote guestbook to PROD (${IMAGE_TAG})"
+        body: |
+          Image: ${IMAGE_NAME}:${IMAGE_TAG}
 ```
 
 k8s-manifests\guestbook-rollout\base\kustomization.yaml
@@ -444,19 +435,67 @@ k8s-manifests\guestbook-rollout\overlays\dev\kustomization.yaml
 resources:
 - ../../base
 
+nameSuffix: -dev
+
 patches:
-- patch: |-
-    - op: replace
-      path: /spec/replicas
-      value: 1
-  target:
-    kind: Rollout
-    name: guestbook-ui
-      
+  - target:
+      kind: Rollout
+      name: guestbook-ui
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+
+      - op: replace
+        path: /spec/strategy/canary/stableService
+        value: guestbook-ui-dev
+
+      - op: replace
+        path: /spec/strategy/canary/canaryService
+        value: guestbook-ui-canary-dev
+
+      - op: replace
+        path: /spec/strategy/canary/trafficRouting/nginx/stableIngress
+        value: guestbook-ui-ingress-dev
+
+images:
+- name: udemykcloud534/guestbook
+  newTag: e8ed4d8
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+```
+
+k8s-manifests\guestbook-rollout\overlays\prod\kustomization.yaml
+```
+resources:
+- ../../base
+
+nameSuffix: -prod
+
+patches:
+  - target:
+      kind: Rollout
+      name: guestbook-ui
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+
+      - op: replace
+        path: /spec/strategy/canary/stableService
+        value: guestbook-ui-prod
+
+      - op: replace
+        path: /spec/strategy/canary/canaryService
+        value: guestbook-ui-canary-prod
+
+      - op: replace
+        path: /spec/strategy/canary/trafficRouting/nginx/stableIngress
+        value: guestbook-ui-ingress-prod
 images:
 - name: udemykcloud534/guestbook
   newName: udemykcloud534/guestbook
-  newTag: a40ef51
+  newTag: 091c31e
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 ```
@@ -488,6 +527,7 @@ spec:
   namespaceResourceWhitelist:
     - group: "*"
       kind: "*"
+
 ```
 
 ```
@@ -496,18 +536,45 @@ kind: Application
 metadata:
   name: guestbook-dev
   namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: guestbook=udemykcloud534/guestbook
+    argocd-image-updater.argoproj.io/guestbook.update-strategy: latest
+    argocd-image-updater.argoproj.io/guestbook.allow-tags: regexp:^[a-f0-9]{7}$
+    argocd-image-updater.argoproj.io/guestbook.tag-order: lexicographical
+    argocd-image-updater.argoproj.io/write-back-method: git
+    argocd-image-updater.argoproj.io/write-back-target: kustomization
+    argocd.argoproj.io/secret-type: repo-creds
 spec:
   project: guestbook
-
   source:
     repoURL: https://github.com/crazylearning-cr/guestbook.git
     targetRevision: main
     path: k8s-manifests/guestbook-rollout/overlays/dev
-
   destination:
     server: https://kubernetes.default.svc
     namespace: dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
 
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook-prod
+  namespace: argocd
+spec:
+  project: guestbook
+  source:
+    repoURL: https://github.com/crazylearning-cr/guestbook.git
+    targetRevision: main
+    path: k8s-manifests/guestbook-rollout/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: prod
   syncPolicy:
     automated:
       prune: true
@@ -522,19 +589,6 @@ kubectl apply -f k8s-manifests/argo-application/application.yaml
 ```
 
 
-Install image updater 
-```
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/v0.12.2/manifests/install.yaml
-kubectl get pods -n argocd
-
-kubectl create secret generic github-repo-creds -n argocd --from-literal=url=https://github.com/crazylearning-cr/guestbook.git --from-literal=username=git --from-literal=password=github_pat_xxxxxxxx --from-literal=type=git --dry-run=client -o yaml | kubectl apply -f -
-
-kubectl label secret github-repo-creds -n argocd argocd.argoproj.io/secret-type=repo-creds
-
-kubectl rollout restart deployment argocd-repo-server -n argocd
-
-kubectl logs -n argocd deployment/argocd-image-updater -f
-```
 
 Promote to next level
 ```
