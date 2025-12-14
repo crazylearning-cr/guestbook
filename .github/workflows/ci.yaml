@@ -8,6 +8,8 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'k8s-manifests/**'
 
 jobs:
   build-and-propose:

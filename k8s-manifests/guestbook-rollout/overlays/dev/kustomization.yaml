@@ -1,5 +1,8 @@
 resources:
 - ../../base
+
+nameSuffix: -dev
+
 patches:
 - patch: |-
     - op: replace
