@@ -524,9 +524,16 @@ kubectl apply -f k8s-manifests/argo-application/application.yaml
 
 Install image updater 
 ```
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/config/install.yaml
+kubectl apply -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/config/install.yaml
 ```
 
 Promote to next level
 ```
 kubectl argo rollouts promote guestbook-ui -n dev
+
+
+GitHub repo
+ → Settings
+ → Actions
+ → General
+ sllow creating pr
