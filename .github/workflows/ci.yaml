@@ -49,35 +49,19 @@ jobs:
         curl -s https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
         sudo mv kustomize /usr/local/bin/
 
-    - name: Create prod promotion branch
+    - name: Update prod manifest
       run: |
-        git checkout -b promote-prod-${IMAGE_TAG}
-
         cd k8s-manifests/guestbook-rollout/overlays/prod
         kustomize edit set image \
           udemykcloud534/guestbook=${IMAGE_NAME}:${IMAGE_TAG}
 
-        git config user.email "${COMMIT_EMAIL}"
-        git config user.name "${COMMIT_NAME}"
-
-        git add kustomization.yaml
-        git commit -m "prod: promote guestbook to ${IMAGE_TAG}"
-        git push origin promote-prod-${IMAGE_TAG}
-
-    # ----------------------------
-    # Create PR
-    # ----------------------------
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v6
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "prod: promote guestbook to ${IMAGE_TAG}"
         branch: promote-prod-${{ env.IMAGE_TAG }}
         base: main
         title: "Promote guestbook to PROD (${IMAGE_TAG})"
         body: |
-          ## 🚀 Production Promotion
-          - Image: `${IMAGE_NAME}:${IMAGE_TAG}`
-          - Source: Docker Hub
-          - Verified in DEV via Argo Image Updater
-
-          ✅ Please review and approve for production deployment.
+          Image: ${IMAGE_NAME}:${IMAGE_TAG}
