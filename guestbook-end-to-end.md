@@ -522,6 +522,10 @@ kubectl apply -f k8s-manifests/argo-application/application.yaml
 ```
 
 
+Install image updater 
+```
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/config/install.yaml
+```
 
 Promote to next level
 ```
