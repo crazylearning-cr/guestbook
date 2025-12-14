@@ -10,6 +10,6 @@ patches:
     name: guestbook-ui
 images:
 - name: udemykcloud534/guestbook
-  newTag: 89e3f0d
+  newTag: e8ed4d8
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
