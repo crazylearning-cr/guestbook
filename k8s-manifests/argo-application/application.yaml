@@ -10,6 +10,7 @@ metadata:
     argocd-image-updater.argoproj.io/guestbook.tag-order: lexicographical
     argocd-image-updater.argoproj.io/write-back-method: git
     argocd-image-updater.argoproj.io/write-back-target: kustomization
+    argocd.argoproj.io/secret-type: repo-creds
 spec:
   project: guestbook
   source:
@@ -23,6 +24,8 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
 
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -43,3 +46,5 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
