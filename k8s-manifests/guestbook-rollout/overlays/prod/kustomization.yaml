@@ -14,6 +14,9 @@ nameSuffix: -prod
 
 
  #👇 HOST-BASED ROUTING PATCH (PROD)
+
+
+
 patches:
 - patch: |-
     - op: replace
@@ -44,6 +47,6 @@ patches:
 images:
 - name: udemykcloud534/guestbook
   newName: udemykcloud534/guestbook
-  newTag: a050b3a
+  newTag: 0d40bf5
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
