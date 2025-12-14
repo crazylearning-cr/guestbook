@@ -30,6 +30,10 @@ patches:
       value: guestbook-dev.34.204.31.114.nip.io
 images:
 - name: udemykcloud534/guestbook
+<<<<<<< HEAD
   newTag: 3270caf
+=======
+  newTag: adc2b30
+>>>>>>> 6c1f51a9d496b8eb217ac21300ad596eb536bbca
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
