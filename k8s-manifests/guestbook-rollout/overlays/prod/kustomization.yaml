@@ -13,6 +13,6 @@ patches:
 images:
 - name: udemykcloud534/guestbook
   newName: udemykcloud534/guestbook
-  newTag: 091c31e
+  newTag: be7d8cc
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
