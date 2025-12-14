@@ -1,31 +1,28 @@
 resources:
 - ../../base
-
 nameSuffix: -dev
-
 patches:
-  - target:
-      kind: Rollout
-      name: guestbook-ui
-    patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 1
+- target:
+    kind: Rollout
+    name: guestbook-ui
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 1
 
-      - op: replace
-        path: /spec/strategy/canary/stableService
-        value: guestbook-ui-dev
+    - op: replace
+      path: /spec/strategy/canary/stableService
+      value: guestbook-ui-dev
 
-      - op: replace
-        path: /spec/strategy/canary/canaryService
-        value: guestbook-ui-canary-dev
+    - op: replace
+      path: /spec/strategy/canary/canaryService
+      value: guestbook-ui-canary-dev
 
-      - op: replace
-        path: /spec/strategy/canary/trafficRouting/nginx/stableIngress
-        value: guestbook-ui-ingress-dev
-
+    - op: replace
+      path: /spec/strategy/canary/trafficRouting/nginx/stableIngress
+      value: guestbook-ui-ingress-dev
 images:
 - name: udemykcloud534/guestbook
-  newTag: e8ed4d8
+  newTag: 7aabd5f
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
